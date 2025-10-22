@@ -4,6 +4,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
 
 > **⚠️ Development Status: Pre-Alpha**
+> 
 > This project is in active early development. The API is not stable and breaking changes will occur frequently. Not recommended for production use yet. This does not yet have an existing npm package
 
 An unofficial, type-safe TypeScript client for ESPN's various API endpoints. Built with performance, developer experience, and maintainability in mind.
