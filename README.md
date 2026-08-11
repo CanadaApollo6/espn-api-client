@@ -1,264 +1,250 @@
 # ESPN API Client
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+A small TypeScript client for ESPN's public, unofficial JSON APIs.
 
-> **⚠️ Development Status: Pre-Alpha**
-> 
-> This project is in active early development. The API is not stable and breaking changes will occur frequently. Not recommended for production use yet. This does not yet have an existing npm package
+> **Status:** v0.1 is an early API. ESPN does not publish or support these endpoints, so routes and response shapes can change without notice. This project is not affiliated with, endorsed by, or sponsored by ESPN or The Walt Disney Company.
 
-An unofficial, type-safe TypeScript client for ESPN's various API endpoints. Built with performance, developer experience, and maintainability in mind.
+The client currently provides:
 
-## Project Vision
+- Scoreboards and schedules
+- League standings
+- Teams, rosters, schedules, and statistics
+- League, team, and athlete news
+- Athlete profiles, statistics, and game logs
+- Game summaries and core event records
+- A typed raw-request escape hatch for routes that do not have a wrapper yet
 
-ESPN API Client aims to provide:
+Requests are made with [Ky](https://github.com/sindresorhus/ky). The package adds ESPN-specific URL construction, query handling, retries, timeouts, response guards, types, and errors.
 
-- **Type-safe access** to ESPN's sports data with full TypeScript support
-- **Performant implementation** with minimal bundle size and efficient runtime
-- **Developer-friendly API** with intuitive method names and excellent IDE support
-- **Comprehensive coverage** of ESPN's major endpoints (News, Teams, Scoreboard, Athletes, etc.)
-- **Robust error handling** with custom error types for common scenarios
+## Installation
 
-## Why This Project?
+The first npm release has not been published yet. After it is published:
 
-ESPN provides rich sports data through various undocumented API endpoints, but accessing them directly requires:
+```bash
+npm install espn-api-client
+```
 
-- Manual URL construction and parameter handling
-- No type safety or IDE autocomplete
-- Custom error handling for each endpoint
-- Repetitive boilerplate code
+To work from this repository today:
 
-This client eliminates that friction while maintaining the flexibility to access ESPN's full data set.
+```bash
+git clone https://github.com/CanadaApollo6/espn-api-client.git
+cd espn-api-client
+npm ci
+npm run build
+```
 
-## Planned Features
+Node.js 22 or newer is required.
 
-### Core Endpoints (MVP)
-
-- [ ] **News API** - Get latest news for sports, teams, and players
-- [ ] **Teams API** - Access team information, rosters, and statistics
-- [ ] **Scoreboard API** - Retrieve game scores and schedules
-- [ ] **Athletes API** - Query player data and statistics
-- [ ] **Games API** - Detailed game information and play-by-play data
-
-### Additional Features
-
-- [ ] Intelligent caching layer (optional)
-- [ ] Rate limiting protection
-- [ ] Request retry logic
-- [ ] Comprehensive documentation
-- [ ] Usage examples for common scenarios
-
-### Future Considerations
-
-- Python client implementation
-- Advanced query builders
-- Pagination helpers
-- WebSocket support for live data
-
-## Quick Start (Planned API)
-
-Once released, the API will look like this:
+## Quick start
 
 ```typescript
 import { ESPNClient } from 'espn-api-client';
 
-// Initialize the client
+// Defaults to football / nfl.
 const espn = new ESPNClient();
 
-// Get latest NFL news
-const news = await espn.news.getNFLNews({ limit: 10 });
+const scoreboard = await espn.scoreboard.get({ limit: 10 });
 
-// Get all NFL teams
-const teams = await espn.teams.getAll();
-
-// Get specific team by ID
-const chiefs = await espn.teams.getById(12); // Kansas City Chiefs
-
-// Get team roster
-const roster = await espn.teams.getRoster(12);
-
-// Get current scoreboard
-const scoreboard = await espn.scoreboard.get({
-  dates: '2025',
-  seasonType: 2, // Regular season
-  week: 1
-});
-
-// Get athlete information
-const player = await espn.athletes.getById(3139477); // Patrick Mahomes
+for (const event of scoreboard.events) {
+  console.log(event.id, event.name, event.date);
+}
 ```
 
-## Design Principles
+Each client is scoped to one ESPN sport and league. Use ESPN's route slugs to target another league:
 
-This project follows strict development principles to ensure quality and maintainability:
+```typescript
+const nba = new ESPNClient({
+  sport: 'basketball',
+  league: 'nba',
+});
 
-### SOLID Principles
+const standings = await nba.standings.get({ season: 2025 });
+```
 
-- Each endpoint class has a single, focused responsibility
-- Extensible architecture without modifying core code
-- Interchangeable implementations (caching, error handling)
-- Focused interfaces without unnecessary methods
+Endpoint availability and response details vary by sport and league.
 
-### Performance First
+See [`examples/basic.ts`](./examples/basic.ts) for a complete usage example.
 
-- **Minimal bundle size** - Tree-shakeable exports, no bloat
-- **Lazy loading** - Endpoint classes instantiated only when used
-- **Efficient parsing** - No unnecessary deep cloning or runtime validation
-- **Smart defaults** - Sensible configuration out of the box
+## API
 
-### Developer Experience
+Endpoint methods return ESPN-shaped objects. They do not normalize ESPN data into a separate domain model.
 
-- Full TypeScript support with explicit return types
-- Comprehensive JSDoc documentation
-- Clear error messages with context
-- Consistent API patterns across all endpoints
+| Group | Methods |
+| --- | --- |
+| `espn.scoreboard` | `get(params?)` |
+| `espn.standings` | `get(params?)` |
+| `espn.teams` | `getAll(params?)`, `getById(teamId, params?)`, `getRoster(teamId, params?)`, `getSchedule(teamId, params?)`, `getStatistics(teamId, params?)` |
+| `espn.news` | `get(params?)`, `getForTeam(teamId, params?)`, `getForAthlete(athleteId, params?)` |
+| `espn.athletes` | `getById(athleteId, params?)`, `getStats(athleteId, params?)`, `getGameLog(athleteId, params?)` |
+| `espn.games` | `getSummary(eventId, params?)`, `getById(eventId, params?)` |
 
-For detailed development guidelines, see [CLAUDE.md](./CLAUDE.md).
+Common examples:
 
-## Project Status
+```typescript
+const chiefs = await espn.teams.getById(12);
+console.log(chiefs.team.displayName);
 
-### Current Phase: Foundation (Phase 1)
+const roster = await espn.teams.getRoster(12, { season: 2025 });
+const news = await espn.news.getForTeam(12, { limit: 5 });
+const athlete = await espn.athletes.getById(3139477);
+const game = await espn.games.getSummary('401772510');
+```
 
-**In Progress:**
+IDs may be strings or numbers. Query parameter objects also accept additional ESPN query keys, since the upstream API exposes sport-specific options that are not all modeled here.
 
-- [ ] Project structure and tooling setup
-- [ ] Core ESPNClient class implementation
-- [ ] Custom error classes
-- [ ] Base types and interfaces
-- [ ] Initial documentation
+### Scoreboard dates
 
-**Next Up:**
+`scoreboard.get()` accepts ESPN's common date forms:
 
-- [ ] Core endpoint implementations (News, Teams, Scoreboard, Athletes)
-- [ ] Comprehensive test suite
-- [ ] Example usage documentation
-- [ ] First alpha release
+```typescript
+await espn.scoreboard.get({ dates: 2026 });
+await espn.scoreboard.get({ dates: '20260910' });
+await espn.scoreboard.get({ dates: '20260910-20260917' });
+await espn.scoreboard.get({ seasonType: 2, week: 1 });
+```
 
-See [CLAUDE.md](./CLAUDE.md) for the complete implementation roadmap.
+### Raw requests
 
-## Contributing
+Use `request()` for an ESPN route that is not wrapped yet:
 
-Contributions are welcome! This project is just getting started, so there are plenty of opportunities to make an impact.
+```typescript
+const controller = new AbortController();
 
-Before contributing:
+const result = await espn.request(
+  'site',
+  '/apis/site/v2/sports/football/nfl/teams',
+  { limit: 32 },
+  {
+    signal: controller.signal,
+    timeoutMs: 5_000,
+    maxRetries: 0,
+  },
+);
+// result is unknown
+```
 
-1. Read [CONTRIBUTING.md](./CONTRIBUTING.md) for workflow and standards
-2. Review [CLAUDE.md](./CLAUDE.md) for development principles
-3. Check existing issues or open a new one to discuss your idea
+The domain must be `site`, `web`, or `core`, and the path must begin with exactly one `/`.
 
-**Good First Contributions:**
+You can supply a generic type, but it is only a compile-time assertion:
 
-- Implementing endpoint classes for specific sports
-- Adding type definitions for API responses
-- Writing tests for existing functionality
-- Improving documentation and examples
-- Reporting bugs or suggesting features
+```typescript
+import type { TeamsResponse } from 'espn-api-client';
+
+const result = await espn.request<TeamsResponse>('site', '/apis/site/v2/sports/football/nfl/teams');
+```
+
+Unlike the built-in endpoint methods, a generic raw request does not validate the response shape. Use `unknown` and validate fields when correctness matters.
+
+## Configuration
+
+```typescript
+const espn = new ESPNClient({
+  sport: 'football',
+  league: 'nfl',
+  timeoutMs: 10_000,
+  maxRetries: 2,
+  retryDelayMs: 250,
+  headers: {
+    'x-example-header': 'value',
+  },
+});
+```
+
+| Option | Default | Meaning |
+| --- | --- | --- |
+| `sport` | `football` | ESPN sport slug used by endpoint paths |
+| `league` | `nfl` | ESPN league slug used by endpoint paths |
+| `timeoutMs` | `10000` | Total deadline across the initial request and all retries |
+| `maxRetries` | `2` | Retry attempts after the initial GET |
+| `retryDelayMs` | `250` | Base exponential backoff delay; jitter is applied |
+| `headers` | `Accept: application/json` | Headers merged into every request |
+| `baseUrls` | ESPN's site, web, and core API origins | Per-domain overrides for proxies and tests |
+| `httpClient` | A default Ky instance | Custom Ky instance for hooks, instrumentation, or tests |
+
+In Node.js, the client also sends an identifying `User-Agent` unless one is supplied.
+
+Treat an injected Ky instance as trusted code. Its hooks still run and can transform requests or responses, and may affect reported attempt metadata. The client reasserts its request-level timeout, redirect, and retry options.
+
+### Retries and timeouts
+
+Only GET requests are made. The client retries transient network failures and HTTP `408`, `429`, `500`, `502`, `503`, and `504` responses. It honors `Retry-After` for `429` and `503`, uses exponential backoff with jitter, and caps retry delays at 30 seconds. Timeouts and caller aborts are not retried. Redirects are rejected so requests remain on the selected API origin.
+
+The timeout is a total deadline across all attempts. Set `maxRetries: 0` to disable retries.
+
+## Errors
+
+HTTP, network, timeout, abort, and response errors created by the package extend `ESPNAPIError` and include a stable `code`. Invalid configuration, paths, IDs, and query ranges throw `TypeError`. Depending on the request failure, an `ESPNAPIError` may also include `status`, `url`, `attempts`, `retryAfterMs`, `responseBody`, and `cause`.
+
+| Class | Code | Meaning |
+| --- | --- | --- |
+| `NotFoundError` | `NOT_FOUND` | ESPN returned HTTP 404 |
+| `RateLimitError` | `RATE_LIMITED` | ESPN returned HTTP 429 |
+| `NetworkError` | `NETWORK_ERROR` | No response was received |
+| `RequestTimeoutError` | `TIMEOUT` | The total request deadline expired |
+| `RequestAbortedError` | `ABORTED` | The caller's abort signal was triggered |
+| `InvalidResponseError` | `INVALID_RESPONSE` | JSON or a required response shape was invalid |
+| `ESPNAPIError` | `HTTP_ERROR` | Another non-success HTTP response |
+
+```typescript
+import { ESPNAPIError, ESPNClient } from 'espn-api-client';
+
+const espn = new ESPNClient();
+
+try {
+  await espn.teams.getById('does-not-exist');
+} catch (error) {
+  if (error instanceof ESPNAPIError) {
+    console.error(error.code, error.status, error.url);
+  } else {
+    throw error;
+  }
+}
+```
+
+## Type and runtime guarantees
+
+The exported interfaces intentionally model only useful, observed parts of ESPN's payloads. They are readonly, remain open to additional properties, and use `unknown` for sections that have not been modeled safely.
+
+Built-in endpoint methods perform lightweight checks on the response envelope and key identifiers. They do not fully validate every nested ESPN field. This keeps the client small while still catching major upstream drift. Treat optional and `unknown` data accordingly.
+
+The package ships as ESM with TypeScript declarations targeting ES2022. Node.js 22+ is supported. Ky 2 is ESM-only, so this package does not claim a CommonJS entry point. Browser and edge use may work where the selected ESPN origin permits cross-origin requests, but ESPN's CORS behavior is not a supported contract.
 
 ## Development
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/espn-api-client.git
-cd espn-api-client
-
-# Install dependencies
-npm install
-
-# Run tests (once available)
-npm test
-
-# Build the project (once available)
-npm run build
-
-# Run linter (once available)
-npm run lint
+npm ci
+npm run check
 ```
 
-## Documentation
+Useful commands:
 
-- [Contributing Guide](./CONTRIBUTING.md) - How to contribute effectively
-- [Development Guide](./CLAUDE.md) - Architecture, principles, and patterns
-- API Documentation - Coming soon
-- Examples - Coming soon
+| Command | Purpose |
+| --- | --- |
+| `npm run check:biome` | Check formatting, lint rules, and import organization |
+| `npm run fix` | Apply Biome formatting, import organization, and safe lint fixes |
+| `npm run format` | Format supported files with Biome |
+| `npm run format:check` | Check formatting without writing files |
+| `npm run lint` | Run the Biome linter with warnings treated as failures |
+| `npm test` | Run deterministic tests; live tests remain skipped |
+| `npm run test:watch` | Run Vitest in watch mode |
+| `npm run test:coverage` | Run tests with coverage thresholds |
+| `npm run test:live` | Opt in to low-volume requests against ESPN |
+| `npm run typecheck` | Run strict TypeScript 7 checks without emitting files |
+| `npm run build` | Build ESM, declarations, and source maps |
+| `npm run test:package` | Install the tarball and smoke-test JS and TypeScript consumers |
+| `npm run publint` | Validate the published package layout |
+| `npm run check` | Run Biome, TypeScript 7, tests, build, and package validation |
 
-## Roadmap
+Biome is the repository's formatter and linter. TypeScript 7 performs project and installed-consumer typechecks. The TypeScript 6 compatibility package remains installed only because `tsup` needs the compiler's programmatic API to bundle declarations.
 
-### Phase 1: Foundation (Current)
+Live tests contact ESPN's public servers. Run them deliberately; they are not part of CI or the normal test command.
 
-Project setup, core client implementation, error handling
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines and [Claude.md](./Claude.md) for architecture and maintenance rules.
 
-### Phase 2: Core Endpoints
+## Responsible use
 
-News, Teams, Scoreboard, Athletes APIs with full test coverage
-
-### Phase 3: Polish & Documentation
-
-Comprehensive docs, examples, performance optimization
-
-### Phase 4: Advanced Features
-
-Caching, rate limiting, retry logic, pagination helpers
-
-### Phase 5: Ecosystem
-
-Python client, community examples, plugin system
-
-See [CLAUDE.md](./CLAUDE.md) for detailed phase breakdown.
-
-### Phase 6: Potential Enterprise Additions
-
-GraphQL support, WebSocket connection, dynamic query builders, ORM-esque features
-
-## Why TypeScript?
-
-TypeScript provides several advantages for an API client:
-
-- **Type safety** prevents runtime errors from invalid data access
-- **IDE support** with autocomplete and inline documentation
-- **Refactoring confidence** when evolving the API
-- **Self-documenting code** through explicit types
-- **Compile-time checks** catch bugs before runtime
-
-The goal is sub-10KB bundle size for the core client with tree-shaking support, so you only bundle what you use.
-
-## Important Notes
-
-**Unofficial Project:**
-This is an unofficial, community-maintained project and is not affiliated with, endorsed by, or sponsored by ESPN or The Walt Disney Company. ESPN's APIs are undocumented and may change without notice.
-
-**No Guarantees:**
-ESPN's API endpoints are not publicly documented or officially supported. They may:
-
-- Change structure or format without warning
-- Implement rate limiting or access restrictions
-- Be deprecated or removed entirely
-
-This client will do its best to handle changes gracefully, but breaking changes may be necessary to keep up with ESPN's API evolution.
-
-**Use Responsibly:**
-When using this client:
-
-- Respect ESPN's servers - don't abuse the API with excessive requests
-- Cache responses when practical to minimize load
-- Be prepared for the API to be unavailable or rate-limited
-- Don't use for commercial purposes without proper licensing
+ESPN's APIs are unofficial and may be changed, restricted, rate-limited, or removed. Keep request volume low, cache results in your application where appropriate, and confirm that your use complies with applicable terms and licensing requirements. No availability or compatibility guarantee is provided.
 
 ## License
 
 [MIT](./LICENSE) - Copyright (c) 2025 Riel St. Amand
-
-## Acknowledgments
-
-- Thanks to all contributors who help build and maintain this project
-- Inspired by the need for better developer tools in the sports data space
-- Built with best practices from the TypeScript and open source communities
-
-## Questions or Issues?
-
-- **Bug reports**: [Open an issue](https://github.com/YOUR_USERNAME/espn-api-client/issues/new?template=bug_report.md)
-- **Feature requests**: [Open an issue](https://github.com/YOUR_USERNAME/espn-api-client/issues/new?template=feature_request.md)
-- **Questions**: [Start a discussion](https://github.com/YOUR_USERNAME/espn-api-client/discussions)
-
----
-
-**Star this project** if you find it useful or want to follow its development!
